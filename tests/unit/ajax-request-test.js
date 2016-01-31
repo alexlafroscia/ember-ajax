@@ -91,12 +91,44 @@ test('headers are not set if the URL does not match the host', function(assert) 
 });
 
 test('headers can be supplied on a per-request basis', function(assert) {
-  assert.expect(2);
+  assert.expect(4);
 
   server.get('http://example.com', (req) => {
     const { requestHeaders } = req;
+    assert.equal(requestHeaders['Content-Type'], 'application/json');
     assert.equal(requestHeaders['Per-Request-Key'], 'Some value', 'Request had per-request header');
     assert.equal(requestHeaders['Other-key'], 'Other Value', 'Request had default header');
+    assert.equal(requestHeaders['Collision-Key'], 'Request value', 'Used request header on collision');
+    return jsonResponse();
+  });
+
+  class RequestWithHeaders extends AjaxRequest {
+    get host() {
+      return 'http://example.com';
+    }
+    get headers() {
+      return {
+        'Content-Type': 'application/json',
+        'Other-key': 'Other Value',
+        'Collision-Key': 'Class value'
+      };
+    }
+  }
+  const service = new RequestWithHeaders();
+  return service.request('http://example.com', {
+    headers: {
+      'Per-Request-Key': 'Some value',
+      'Collision-Key': 'Request value'
+    }
+  });
+});
+
+test('content type can be supplied on a per-request basis', function(assert) {
+  assert.expect(1);
+
+  server.get('http://example.com', (req) => {
+    const { requestHeaders } = req;
+    assert.equal(requestHeaders['Content-Type'], 'application/vnd.api+json');
     return jsonResponse();
   });
 
@@ -110,9 +142,7 @@ test('headers can be supplied on a per-request basis', function(assert) {
   }
   const service = new RequestWithHeaders();
   return service.request('http://example.com', {
-    headers: {
-      'Per-Request-Key': 'Some value'
-    }
+    contentType: 'application/vnd.api+json'
   });
 });
 
